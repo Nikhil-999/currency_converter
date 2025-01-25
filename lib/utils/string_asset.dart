@@ -1,5 +1,5 @@
 class UrlAsset{
-  static const apiKey = "6b1c28f4c5b6dc53cb768b348a15ff54";         /// free API key.
-  static const baseUrl = "https://api.exchangeratesapi.io/v1/";
-  static const getConversion = "latest";
+  static const apiKey = "96bb4d4f6867a6017d2ca9ee";         /// free API key.
+  static const baseUrl = "https://v6.exchangerate-api.com/v6/";
+  static const getConversion = "pair";
 }

@@ -2,6 +2,9 @@ import 'package:currency_converter/services/api_service.dart';
 import 'package:currency_converter/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hive/hive.dart';
+
+import '../services/get_conversion_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,15 +18,25 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String>? items;
   String? fromDropDown;
   String? toDropDown;
-  int? convertedAmount;
+  double? convertedAmount;
   bool showLoader = false;
+  String lastFiveConversion = "";
+  late Box box;
+  List<GetConversionModel> listOfLastConversion = [];
   TextEditingController inputController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+
+    Hive.openBox("conversion").then((a){
+      box = a;
+      listOfLastConversion = [];
+      lastFiveConversion = box.get('conversionData') ?? "";
+      setState(() {});
+    });
     items = [
-      "US", "IN"
+      "USD", "INR" , "AUD" , "CAD" , "RUB"
     ];
     fromDropDown = items?.first;
     toDropDown = items?.last;
@@ -36,29 +49,35 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: const Text("Currency Converter"),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text("Convert Your Currency" , style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
-              color: Colors.green
-            ),),
-            const SizedBox(height: 10,),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Divider(color: Colors.grey, thickness: 1,),
-            ),
-            const SizedBox(height: 20,),
-            fromToDropDownUi(),
-            const SizedBox(height: 20,),
-            convertedAmountUi(),
-            const SizedBox(height: 20,),
-            inputFieldForAmount()
-          ],
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Text("Convert Your Currency" , style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.bold,
+                color: Colors.green
+              ),),
+              const SizedBox(height: 10,),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Divider(color: Colors.grey, thickness: 1,),
+              ),
+              const SizedBox(height: 20,),
+              fromToDropDownUi(),
+              const SizedBox(height: 20,),
+              convertedAmountUi(),
+              const SizedBox(height: 20,),
+              inputFieldForAmount(),
+              const SizedBox(height: 20,),
+              Align(
+                alignment: Alignment.centerLeft,
+                  child: listOfLastFiveConversion())
+            ],
+          ),
         ),
       ),
     );
@@ -138,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget inputFieldForAmount(){
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Column(
         children: [
           TextFormField(
@@ -183,13 +202,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget convertedAmountUi(){
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: dropDownBoxWrapper(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
             children: [
-              Text("Converted amount is : ${convertedAmount ?? "--"}" , style: const TextStyle(
+              Text("Converted amount : ${convertedAmount ?? "--"}" , style: const TextStyle(
                 fontSize: 16,
                 color: Colors.green
               ),),
@@ -207,17 +226,67 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   onSubmitPress() async{
-    if(fromDropDown == null || toDropDown == null || inputController.text.isEmpty){
+    String amount = inputController.text;
+    if(fromDropDown == null || toDropDown == null || amount.isEmpty){
       Constants.showErrorToast(context, "Please fill all required fields.");
+      return;
     }
     setState(() {
+      convertedAmount = null;
       showLoader = true;
     });
     await ApiService().getConversionRate(
-        fromDropDown!, toDropDown!, inputController.text , context).then((a){
+        fromDropDown!, toDropDown!, amount , context).then((modelData){
           setState(() {
             showLoader = false;
           });
+          if(modelData?.conversionResult != null){
+            convertedAmount = modelData!.conversionResult!;
+            modelData.amount = amount;
+            addToList(modelData);
+            box.put('conversionData', '$convertedAmount');
+          }
     });
+  }
+
+  addToList(GetConversionModel getConversionModel){
+    listOfLastConversion.insert(0 , getConversionModel);
+    if(listOfLastConversion.length > 5){
+      listOfLastConversion = listOfLastConversion.sublist(0, 5);
+    }
+  }
+
+  Widget listOfLastFiveConversion(){
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Last 5 currency conversions : " , style: TextStyle(
+          fontSize: 18
+        ),),
+
+        const SizedBox(height: 20,),
+        ...listOfLastConversion.map((a){
+          return itemForList(a);
+        })
+      ],
+    );
+  }
+
+  Widget itemForList(GetConversionModel a){
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: dropDownBoxWrapper(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Text(
+            "From ${a.baseCode} to ${a.targetCode} :${a.amount} -> ${a.conversionResult}",
+            textAlign: TextAlign.left,
+            style: const TextStyle(
+              fontSize: 14
+            ),
+          ),
+        )
+      ),
+    );
   }
 }
