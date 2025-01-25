@@ -1,7 +1,11 @@
 # currency_converter
 
-A new Flutter project.
+Currency converter made using flutter.
 
-## Getting Started
+## To install and run
 
-This project is a starting point for a Flutter application.
+Simply download the project or clone the repository in your machine.
+In your terminal Navigate to project and run these commands
+
+--> Flutter pub get
+--> Flutter run
